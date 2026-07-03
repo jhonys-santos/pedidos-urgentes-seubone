@@ -16,6 +16,7 @@
 
 const SHEET_NAME = 'Pedidos';
 const FOLDER_NAME = 'Manifestos - Pedidos Urgentes';
+const FOLDER_IMAGENS_NAME = 'Imagens OS - Pedidos Urgentes';
 
 // ---------- SETUP (rodar uma vez) ----------
 function configurarPlanilha() {
@@ -25,17 +26,18 @@ function configurarPlanilha() {
 
   const headers = [
     'ID', 'OS', 'Cliente', 'LinkCRM', 'Transportadora', 'Modalidade',
+    'TipoEnvioAereo', 'AeroportoRetirada', 'OSImagemId',
     'ManifestoLink', 'NotaFiscalLink', 'Prazo', 'Status', 'InseridoPor', 'InseridoEm',
     'DespachadoPor', 'DespachadoEm'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
   sheet.setFrozenRows(1);
 
-  // cria (ou localiza) a pasta no Drive para os manifestos
-  const folders = DriveApp.getFoldersByName(FOLDER_NAME);
-  if (!folders.hasNext()) {
-    DriveApp.createFolder(FOLDER_NAME);
-  }
+  // cria (ou localiza) as pastas no Drive
+  [FOLDER_NAME, FOLDER_IMAGENS_NAME].forEach(nome => {
+    const folders = DriveApp.getFoldersByName(nome);
+    if (!folders.hasNext()) DriveApp.createFolder(nome);
+  });
 
   SpreadsheetApp.getUi().alert('Configuração concluída. Pode implantar como App da Web.');
 }
@@ -48,6 +50,21 @@ function getFolder_() {
   const folders = DriveApp.getFoldersByName(FOLDER_NAME);
   if (folders.hasNext()) return folders.next();
   return DriveApp.createFolder(FOLDER_NAME);
+}
+
+function getFolderImagens_() {
+  const folders = DriveApp.getFoldersByName(FOLDER_IMAGENS_NAME);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(FOLDER_IMAGENS_NAME);
+}
+
+// salva um arquivo base64 numa pasta do Drive e deixa público (view) — usado por manifesto, NF e imagem da OS
+function salvarArquivo_(base64, nome, mimeType, pasta) {
+  const bytes = Utilities.base64Decode(base64);
+  const blob = Utilities.newBlob(bytes, mimeType || 'application/octet-stream', nome);
+  const file = pasta.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return file;
 }
 
 // ---------- LEITURA (GET) ----------
@@ -111,21 +128,21 @@ function criarPedido_(body) {
   const id = Utilities.getUuid();
   let manifestoLink = '';
   let notaFiscalLink = '';
+  let osImagemId = '';
 
   if (body.manifestoBase64 && body.manifestoNome) {
-    const bytes = Utilities.base64Decode(body.manifestoBase64);
-    const blob = Utilities.newBlob(bytes, 'application/pdf', body.manifestoNome);
-    const file = getFolder_().createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const file = salvarArquivo_(body.manifestoBase64, body.manifestoNome, 'application/pdf', getFolder_());
     manifestoLink = file.getUrl();
   }
 
   if (body.notaFiscalBase64 && body.notaFiscalNome) {
-    const bytesNf = Utilities.base64Decode(body.notaFiscalBase64);
-    const blobNf = Utilities.newBlob(bytesNf, 'application/pdf', body.notaFiscalNome);
-    const fileNf = getFolder_().createFile(blobNf);
-    fileNf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const fileNf = salvarArquivo_(body.notaFiscalBase64, body.notaFiscalNome, 'application/pdf', getFolder_());
     notaFiscalLink = fileNf.getUrl();
+  }
+
+  if (body.osImagemBase64 && body.osImagemNome) {
+    const fileImg = salvarArquivo_(body.osImagemBase64, body.osImagemNome, body.osImagemTipo || 'image/jpeg', getFolderImagens_());
+    osImagemId = fileImg.getId();
   }
 
   sheet.appendRow([
@@ -135,6 +152,9 @@ function criarPedido_(body) {
     body.linkCrm || '',
     body.transportadora || '',
     body.modalidade || '',
+    body.tipoEnvioAereo || '',
+    body.aeroporto || '',
+    osImagemId,
     manifestoLink,
     notaFiscalLink,
     body.prazo ? new Date(body.prazo) : '',
@@ -145,7 +165,7 @@ function criarPedido_(body) {
     ''
   ]);
 
-  return { ok: true, id: id, manifestoLink: manifestoLink, notaFiscalLink: notaFiscalLink };
+  return { ok: true, id: id, manifestoLink: manifestoLink, notaFiscalLink: notaFiscalLink, osImagemId: osImagemId };
 }
 
 function despacharPedido_(body) {

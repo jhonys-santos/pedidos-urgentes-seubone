@@ -35,6 +35,10 @@
   <div id="lista"></div>
 </div>
 
+<div id="lightbox" class="lightbox" onclick="fecharImagem()">
+  <img id="lightboxImg" src="" alt="OS ampliada">
+</div>
+
 <script src="config.js"></script>
 <script>
 let idsConhecidos = new Set();
@@ -76,6 +80,16 @@ function rotuloUrgencia(prazoIso) {
   if (diffMin < 0) return `Atrasado ${Math.abs(diffMin)} min`;
   if (diffMin < 120) return `Faltam ${diffMin} min`;
   return `No prazo`;
+}
+
+function abrirImagem(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('aberto');
+}
+
+function fecharImagem() {
+  document.getElementById('lightbox').classList.remove('aberto');
+  document.getElementById('lightboxImg').src = '';
 }
 
 async function despachar(id, os) {
@@ -139,11 +153,17 @@ async function carregar() {
             <div><div class="k">Prazo</div>${formatarHora(p.Prazo)}</div>
             <div><div class="k">Transportadora</div>${p.Transportadora}</div>
             <div><div class="k">Modalidade</div>${p.Modalidade}</div>
+            ${p.TipoEnvioAereo ? `<div><div class="k">Envio aéreo</div>${p.TipoEnvioAereo}${p.AeroportoRetirada ? ' — ' + p.AeroportoRetirada : ''}</div>` : ''}
             <div><div class="k">CRM</div><a href="${p.LinkCRM}" target="_blank">Abrir pedido →</a></div>
             ${p.ManifestoLink ? `<div><div class="k">Manifesto</div><a href="${p.ManifestoLink}" target="_blank">Ver PDF →</a></div>` : ''}
             ${p.NotaFiscalLink ? `<div><div class="k">Nota fiscal</div><a href="${p.NotaFiscalLink}" target="_blank">Ver PDF →</a></div>` : ''}
             <div><div class="k">Inserido por</div>${p.InseridoPor}</div>
           </div>
+          ${p.OSImagemId ? `
+            <img class="os-thumb" src="https://drive.google.com/thumbnail?id=${p.OSImagemId}&sz=w300"
+                 alt="Foto da OS ${p.OS}"
+                 onclick="abrirImagem('https://drive.google.com/thumbnail?id=${p.OSImagemId}&sz=w1600')">
+          ` : ''}
           <div class="pedido-actions">
             <button class="btn-dispatch" onclick="despachar('${p.ID}', '${p.OS}')">Despachar</button>
           </div>

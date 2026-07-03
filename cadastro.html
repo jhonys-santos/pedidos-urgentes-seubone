@@ -58,6 +58,32 @@
     <label>Prazo limite para despacho hoje *</label>
     <input type="datetime-local" id="prazo" required>
 
+    <div id="blocoAereo" style="display:none;">
+      <label>Tipo de envio (aéreo) *</label>
+      <select id="tipoEnvioAereo">
+        <option value="">Selecione</option>
+        <option value="Retirada">Retirada no aeroporto</option>
+        <option value="Domicílio">Entrega em domicílio</option>
+      </select>
+
+      <div id="blocoAeroporto" style="display:none;">
+        <label>Aeroporto de retirada *</label>
+        <input type="text" id="aeroporto" list="lista-aeroportos" placeholder="Ex: Aeroporto de Natal (NAT)">
+        <datalist id="lista-aeroportos">
+          <option value="Aeroporto de Natal (NAT)">
+          <option value="Aeroporto do Recife (REC)">
+          <option value="Aeroporto de Fortaleza (FOR)">
+          <option value="Aeroporto de Guarulhos (GRU)">
+          <option value="Aeroporto do Galeão (GIG)">
+          <option value="Aeroporto de Brasília (BSB)">
+        </datalist>
+      </div>
+    </div>
+
+    <label>OS (Imagem) — opcional</label>
+    <input type="file" id="osImagem" accept="image/*" onchange="previewOsImagem()">
+    <img id="previewOsImagem" style="display:none; margin-top:10px; max-width:160px; border-radius:8px; border:1px solid var(--border);">
+
     <label>Manifesto (PDF) — opcional</label>
     <input type="file" id="manifesto" accept="application/pdf">
 
@@ -94,6 +120,39 @@ function setDefaultPrazo() {
 }
 setDefaultPrazo();
 
+const modalidadeEl = document.getElementById('modalidade');
+const blocoAereo = document.getElementById('blocoAereo');
+const tipoEnvioAereoEl = document.getElementById('tipoEnvioAereo');
+const blocoAeroporto = document.getElementById('blocoAeroporto');
+const aeroportoEl = document.getElementById('aeroporto');
+
+modalidadeEl.addEventListener('change', () => {
+  const isAereo = modalidadeEl.value === 'Aéreo';
+  blocoAereo.style.display = isAereo ? 'block' : 'none';
+  if (!isAereo) {
+    tipoEnvioAereoEl.value = '';
+    blocoAeroporto.style.display = 'none';
+    aeroportoEl.value = '';
+  }
+});
+
+tipoEnvioAereoEl.addEventListener('change', () => {
+  const isRetirada = tipoEnvioAereoEl.value === 'Retirada';
+  blocoAeroporto.style.display = isRetirada ? 'block' : 'none';
+  if (!isRetirada) aeroportoEl.value = '';
+});
+
+function previewOsImagem() {
+  const file = document.getElementById('osImagem').files[0];
+  const img = document.getElementById('previewOsImagem');
+  if (file) {
+    img.src = URL.createObjectURL(file);
+    img.style.display = 'block';
+  } else {
+    img.style.display = 'none';
+  }
+}
+
 async function enviar() {
   const os = document.getElementById('os').value.trim();
   const cliente = document.getElementById('cliente').value.trim();
@@ -104,12 +163,27 @@ async function enviar() {
   const inseridoPor = document.getElementById('inseridoPor').value.trim();
   const fileInput = document.getElementById('manifesto');
   const notaFiscalInput = document.getElementById('notaFiscal');
+  const osImagemInput = document.getElementById('osImagem');
+  const tipoEnvioAereo = tipoEnvioAereoEl.value;
+  const aeroporto = aeroportoEl.value.trim();
 
   const msg = document.getElementById('msg');
   msg.className = 'msg';
 
   if (!os || !cliente || !linkCrm || !transportadora || !modalidade || !prazo || !inseridoPor) {
     msg.textContent = 'Preencha todos os campos obrigatórios (*).';
+    msg.classList.add('err');
+    return;
+  }
+
+  if (modalidade === 'Aéreo' && !tipoEnvioAereo) {
+    msg.textContent = 'Selecione o tipo de envio aéreo (retirada ou domicílio).';
+    msg.classList.add('err');
+    return;
+  }
+
+  if (modalidade === 'Aéreo' && tipoEnvioAereo === 'Retirada' && !aeroporto) {
+    msg.textContent = 'Informe o aeroporto de retirada.';
     msg.classList.add('err');
     return;
   }
@@ -125,7 +199,17 @@ async function enviar() {
     inseridoPor
   };
 
+  if (modalidade === 'Aéreo') {
+    payload.tipoEnvioAereo = tipoEnvioAereo;
+    if (tipoEnvioAereo === 'Retirada') payload.aeroporto = aeroporto;
+  }
+
   try {
+    if (osImagemInput.files.length > 0) {
+      payload.osImagemBase64 = await toBase64(osImagemInput.files[0]);
+      payload.osImagemNome = osImagemInput.files[0].name;
+      payload.osImagemTipo = osImagemInput.files[0].type;
+    }
     if (fileInput.files.length > 0) {
       payload.manifestoBase64 = await toBase64(fileInput.files[0]);
       payload.manifestoNome = fileInput.files[0].name;
@@ -143,8 +227,12 @@ async function enviar() {
       msg.classList.add('ok');
       ['os','cliente','linkCrm','transportadora'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('modalidade').value = '';
+      blocoAereo.style.display = 'none';
+      blocoAeroporto.style.display = 'none';
       fileInput.value = '';
       notaFiscalInput.value = '';
+      osImagemInput.value = '';
+      document.getElementById('previewOsImagem').style.display = 'none';
       setDefaultPrazo();
     } else {
       throw new Error(data.erro || 'Erro desconhecido');

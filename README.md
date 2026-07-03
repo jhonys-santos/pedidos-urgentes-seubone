@@ -24,6 +24,8 @@ Todos os arquivos ficam soltos na raiz do repositório (sem subpastas — evita 
 
 Toda vez que você editar o `Code.gs` depois disso, precisa ir em **Implantar > Gerenciar implantações > editar (lápis) > Versão: Nova versão > Implantar** — senão o `/exec` continua rodando a versão antiga.
 
+**Se você já tinha rodado `configurarPlanilha` antes desta versão:** o backend agora espera as colunas `TipoEnvioAereo`, `AeroportoRetirada` e `OSImagemId` (nessa ordem, logo depois de `Modalidade`). Se a planilha já tem pedidos reais, insira essas 3 colunas manualmente nessa posição. Se ainda não tem dado real, rode `configurarPlanilha` de novo.
+
 ## Passo 2 — Frontend (GitHub Pages)
 1. Suba `cadastro.html`, `painel.html`, `historico.html`, `config.js` e `style.css` pro repositório — todos soltos, sem colocar dentro de nenhuma subpasta.
 2. Abra `config.js` direto no GitHub (edit) e cole a URL do Passo 1 no lugar de `COLE_AQUI_A_URL_DO_APPS_SCRIPT`.
