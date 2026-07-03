@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadastrar Pedido Urgente — SeuBoné</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="brand-mark">SB</div>
+    <div>
+      <h1>Pedidos Urgentes</h1>
+      <div class="sub">Cadastro — SAC</div>
+    </div>
+  </div>
+  <nav>
+    <a href="cadastro.html" class="active">Cadastrar</a>
+    <a href="painel.html">Painel Estoque</a>
+    <a href="historico.html">Histórico</a>
+  </nav>
+</div>
+
+<div class="container">
+  <div class="card">
+    <label>Ordem de Serviço (OS) *</label>
+    <input type="text" id="os" placeholder="Ex: OS-48213" required>
+
+    <label>Cliente *</label>
+    <input type="text" id="cliente" placeholder="Nome do cliente" required>
+
+    <label>Link do CRM *</label>
+    <input type="url" id="linkCrm" placeholder="https://crm.seubone.com/..." required>
+
+    <div class="row2">
+      <div>
+        <label>Modalidade de envio *</label>
+        <select id="modalidade" required>
+          <option value="">Selecione</option>
+          <option>Aéreo</option>
+          <option>Rodoviário</option>
+          <option>Carro de linha</option>
+          <option>Retirada no escritório (Natal)</option>
+          <option>Retirada no estoque (Caicó)</option>
+          <option>Outro</option>
+        </select>
+      </div>
+      <div>
+        <label>Transportadora &amp; Modalidade de envio (Ex: Latam - Standard) *</label>
+        <input type="text" id="transportadora" placeholder="Ex: Latam - Standard" required>
+      </div>
+    </div>
+
+    <label>Prazo limite para despacho hoje *</label>
+    <input type="datetime-local" id="prazo" required>
+
+    <label>Manifesto (PDF) — opcional</label>
+    <input type="file" id="manifesto" accept="application/pdf">
+
+    <label>Nota fiscal (PDF) — opcional</label>
+    <input type="file" id="notaFiscal" accept="application/pdf">
+
+    <label>Seu nome (quem está cadastrando) *</label>
+    <input type="text" id="inseridoPor" placeholder="Ex: Nathalia" required>
+
+    <button class="btn-primary" id="btnEnviar" onclick="enviar()">Cadastrar pedido</button>
+
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+function toBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function setDefaultPrazo() {
+  const now = new Date();
+  now.setHours(17, 0, 0, 0);
+  if (now < new Date()) now.setDate(now.getDate()); // mantém hoje mesmo se já passou; usuário ajusta
+  const pad = n => String(n).padStart(2, '0');
+  const local = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  document.getElementById('prazo').value = local;
+}
+setDefaultPrazo();
+
+async function enviar() {
+  const os = document.getElementById('os').value.trim();
+  const cliente = document.getElementById('cliente').value.trim();
+  const linkCrm = document.getElementById('linkCrm').value.trim();
+  const transportadora = document.getElementById('transportadora').value.trim();
+  const modalidade = document.getElementById('modalidade').value;
+  const prazo = document.getElementById('prazo').value;
+  const inseridoPor = document.getElementById('inseridoPor').value.trim();
+  const fileInput = document.getElementById('manifesto');
+  const notaFiscalInput = document.getElementById('notaFiscal');
+
+  const msg = document.getElementById('msg');
+  msg.className = 'msg';
+
+  if (!os || !cliente || !linkCrm || !transportadora || !modalidade || !prazo || !inseridoPor) {
+    msg.textContent = 'Preencha todos os campos obrigatórios (*).';
+    msg.classList.add('err');
+    return;
+  }
+
+  const btn = document.getElementById('btnEnviar');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const payload = {
+    action: 'create',
+    os, cliente, linkCrm, transportadora, modalidade,
+    prazo: new Date(prazo).toISOString(),
+    inseridoPor
+  };
+
+  try {
+    if (fileInput.files.length > 0) {
+      payload.manifestoBase64 = await toBase64(fileInput.files[0]);
+      payload.manifestoNome = fileInput.files[0].name;
+    }
+    if (notaFiscalInput.files.length > 0) {
+      payload.notaFiscalBase64 = await toBase64(notaFiscalInput.files[0]);
+      payload.notaFiscalNome = notaFiscalInput.files[0].name;
+    }
+
+    const resp = await fetch(APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const data = await resp.json();
+
+    if (data.ok) {
+      msg.textContent = `Pedido ${os} cadastrado. O estoque já está vendo na fila.`;
+      msg.classList.add('ok');
+      ['os','cliente','linkCrm','transportadora'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('modalidade').value = '';
+      fileInput.value = '';
+      notaFiscalInput.value = '';
+      setDefaultPrazo();
+    } else {
+      throw new Error(data.erro || 'Erro desconhecido');
+    }
+  } catch (err) {
+    msg.textContent = 'Erro ao cadastrar: ' + err.message + '. Confira a URL do backend em config.js.';
+    msg.classList.add('err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Cadastrar pedido';
+  }
+}
+</script>
+
+</body>
+</html>
