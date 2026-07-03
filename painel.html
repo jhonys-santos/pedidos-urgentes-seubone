@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel do Estoque — Pedidos Urgentes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="brand-mark">SB</div>
+    <div>
+      <h1>Pedidos Urgentes</h1>
+      <div class="sub">Painel — Estoque · atualiza a cada 15s</div>
+    </div>
+  </div>
+  <nav>
+    <a href="cadastro.html">Cadastrar</a>
+    <a href="painel.html" class="active">Painel Estoque</a>
+    <a href="historico.html">Histórico</a>
+  </nav>
+</div>
+
+<div class="container">
+  <div class="stats">
+    <div class="stat"><div class="n" id="statTotal">-</div><div class="l">pedidos na fila</div></div>
+    <div class="stat danger"><div class="n" id="statAtrasado">-</div><div class="l">atrasados</div></div>
+    <div class="stat ok"><div class="n" id="statNoPrazo">-</div><div class="l">dentro do prazo</div></div>
+  </div>
+
+  <div id="lista"></div>
+</div>
+
+<script src="assets/config.js"></script>
+<script>
+let idsConhecidos = new Set();
+let primeiraCarga = true;
+
+function tocarAlerta() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.22, 0.44].forEach(delay => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.2);
+    });
+  } catch (e) { /* navegador pode bloquear áudio sem interação prévia */ }
+}
+
+function formatarHora(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function urgencia(prazoIso) {
+  const prazo = new Date(prazoIso);
+  const diffMin = (prazo - new Date()) / 60000;
+  if (diffMin < 0) return 'danger';
+  if (diffMin < 120) return 'warn';
+  return 'ok';
+}
+
+function rotuloUrgencia(prazoIso) {
+  const prazo = new Date(prazoIso);
+  const diffMin = Math.round((prazo - new Date()) / 60000);
+  if (diffMin < 0) return `Atrasado ${Math.abs(diffMin)} min`;
+  if (diffMin < 120) return `Faltam ${diffMin} min`;
+  return `No prazo`;
+}
+
+async function despachar(id, os) {
+  const nome = prompt(`Confirmar despacho do pedido ${os}.\nSeu nome:`);
+  if (!nome) return;
+  try {
+    const resp = await fetch(APP_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'despachar', id, despachadoPor: nome })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      idsConhecidos.delete(id);
+      carregar();
+    } else {
+      alert('Erro: ' + (data.erro || 'não foi possível despachar'));
+    }
+  } catch (e) {
+    alert('Erro de conexão ao despachar.');
+  }
+}
+
+async function carregar() {
+  try {
+    const resp = await fetch(`${APP_URL}?action=list&status=Pendente`);
+    const pedidos = await resp.json();
+
+    pedidos.sort((a, b) => new Date(a.Prazo) - new Date(b.Prazo));
+
+    const idsAtuais = new Set(pedidos.map(p => p.ID));
+    if (!primeiraCarga) {
+      const novos = [...idsAtuais].filter(id => !idsConhecidos.has(id));
+      if (novos.length > 0) tocarAlerta();
+    }
+    idsConhecidos = idsAtuais;
+    primeiraCarga = false;
+
+    const atrasados = pedidos.filter(p => urgencia(p.Prazo) === 'danger').length;
+    document.getElementById('statTotal').textContent = pedidos.length;
+    document.getElementById('statAtrasado').textContent = atrasados;
+    document.getElementById('statNoPrazo').textContent = pedidos.length - atrasados;
+
+    const lista = document.getElementById('lista');
+    if (pedidos.length === 0) {
+      lista.innerHTML = `<div class="empty"><div class="big">✓</div>Nenhum pedido pendente agora.</div>`;
+      return;
+    }
+
+    lista.innerHTML = pedidos.map(p => {
+      const u = urgencia(p.Prazo);
+      return `
+        <div class="pedido ${u}">
+          <div class="pedido-top">
+            <div>
+              <div class="pedido-os mono">${p.OS}</div>
+              <div class="pedido-cliente">${p.Cliente}</div>
+            </div>
+            <span class="badge ${u}">${rotuloUrgencia(p.Prazo)}</span>
+          </div>
+          <div class="pedido-meta">
+            <div><div class="k">Prazo</div>${formatarHora(p.Prazo)}</div>
+            <div><div class="k">Transportadora</div>${p.Transportadora}</div>
+            <div><div class="k">Modalidade</div>${p.Modalidade}</div>
+            <div><div class="k">CRM</div><a href="${p.LinkCRM}" target="_blank">Abrir pedido →</a></div>
+            ${p.ManifestoLink ? `<div><div class="k">Manifesto</div><a href="${p.ManifestoLink}" target="_blank">Ver PDF →</a></div>` : ''}
+            ${p.NotaFiscalLink ? `<div><div class="k">Nota fiscal</div><a href="${p.NotaFiscalLink}" target="_blank">Ver PDF →</a></div>` : ''}
+            <div><div class="k">Inserido por</div>${p.InseridoPor}</div>
+          </div>
+          <div class="pedido-actions">
+            <button class="btn-dispatch" onclick="despachar('${p.ID}', '${p.OS}')">Despachar</button>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('lista').innerHTML = `<div class="empty">Erro ao carregar. Confira a URL em assets/config.js.</div>`;
+  }
+}
+
+carregar();
+setInterval(carregar, 15000);
+</script>
+
+</body>
+</html>
