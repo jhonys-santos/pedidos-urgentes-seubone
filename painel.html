@@ -6,6 +6,7 @@
 <title>Painel do Estoque — Pedidos Urgentes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="favicon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -26,6 +27,8 @@
 </div>
 
 <div class="container">
+  <button id="btnAtivarSom" onclick="ativarSom()" style="margin-bottom:16px; background:var(--surface-alt); color:var(--text); border:1px solid var(--border);">🔔 Clique aqui pra ativar o som de alerta</button>
+
   <div class="stats">
     <div class="stat"><div class="n" id="statTotal">-</div><div class="l">pedidos na fila</div></div>
     <div class="stat danger"><div class="n" id="statAtrasado">-</div><div class="l">atrasados</div></div>
@@ -39,26 +42,31 @@
   <img id="lightboxImg" src="" alt="OS ampliada">
 </div>
 
+<audio id="somAlerta" src="alerta.mp3" preload="auto"></audio>
+
 <script src="config.js"></script>
 <script>
 let idsConhecidos = new Set();
 let primeiraCarga = true;
 
+function ativarSom() {
+  const audio = document.getElementById('somAlerta');
+  audio.play().then(() => {
+    audio.pause();
+    audio.currentTime = 0;
+    document.getElementById('btnAtivarSom').textContent = '✓ Som ativado';
+    document.getElementById('btnAtivarSom').disabled = true;
+  }).catch(() => {
+    document.getElementById('btnAtivarSom').textContent = 'Não foi possível ativar — clique em qualquer lugar da página';
+  });
+}
+
 function tocarAlerta() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.22, 0.44].forEach(delay => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.15, ctx.currentTime + delay);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
-      osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.2);
-    });
-  } catch (e) { /* navegador pode bloquear áudio sem interação prévia */ }
+  const audio = document.getElementById('somAlerta');
+  audio.currentTime = 0;
+  audio.play().catch(() => {
+    // navegador pode bloquear autoplay até o usuário interagir com a página uma vez
+  });
 }
 
 function formatarHora(iso) {

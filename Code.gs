@@ -69,16 +69,20 @@ function salvarArquivo_(base64, nome, mimeType, pasta) {
 
 // ---------- LEITURA (GET) ----------
 function doGet(e) {
-  const action = e.parameter.action || 'list';
+  try {
+    const action = e.parameter.action || 'list';
 
-  if (action === 'list') {
-    const status = e.parameter.status || null; // "Pendente" | "Despachado" | null (todos)
-    const desde = e.parameter.desde || null;   // filtro por data de InseridoEm, formato YYYY-MM-DD
-    const ate = e.parameter.ate || null;
-    return jsonOut_(listarPedidos_(status, desde, ate));
+    if (action === 'list') {
+      const status = e.parameter.status || null; // "Pendente" | "Despachado" | null (todos)
+      const desde = e.parameter.desde || null;   // filtro por data de InseridoEm, formato YYYY-MM-DD
+      const ate = e.parameter.ate || null;
+      return jsonOut_(listarPedidos_(status, desde, ate));
+    }
+
+    return jsonOut_({ erro: 'ação inválida' });
+  } catch (err) {
+    return jsonOut_({ erro: 'Erro no backend (doGet): ' + err.message });
   }
-
-  return jsonOut_({ erro: 'ação inválida' });
 }
 
 function listarPedidos_(status, desde, ate) {
@@ -114,13 +118,17 @@ function listarPedidos_(status, desde, ate) {
 
 // ---------- ESCRITA (POST) ----------
 function doPost(e) {
-  const body = JSON.parse(e.postData.contents);
-  const action = body.action;
+  try {
+    const body = JSON.parse(e.postData.contents);
+    const action = body.action;
 
-  if (action === 'create') return jsonOut_(criarPedido_(body));
-  if (action === 'despachar') return jsonOut_(despacharPedido_(body));
+    if (action === 'create') return jsonOut_(criarPedido_(body));
+    if (action === 'despachar') return jsonOut_(despacharPedido_(body));
 
-  return jsonOut_({ erro: 'ação inválida' });
+    return jsonOut_({ erro: 'ação inválida' });
+  } catch (err) {
+    return jsonOut_({ erro: 'Erro no backend (doPost): ' + err.message });
+  }
 }
 
 function criarPedido_(body) {
