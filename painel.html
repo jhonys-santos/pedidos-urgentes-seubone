@@ -167,6 +167,7 @@ async function carregar() {
             ${p.NotaFiscalLink ? `<div><div class="k">Nota fiscal</div><a href="${p.NotaFiscalLink}" target="_blank">Ver PDF →</a></div>` : ''}
             <div><div class="k">Inserido por</div>${p.InseridoPor}</div>
           </div>
+          ${p.Observacao ? `<div class="observacao">⚠️ ${p.Observacao}</div>` : ''}
           ${p.OSImagemId ? `
             <img class="os-thumb" src="https://drive.google.com/thumbnail?id=${p.OSImagemId}&sz=w300"
                  alt="Foto da OS ${p.OS}"

@@ -91,6 +91,9 @@
     <label>Nota fiscal (PDF) — opcional</label>
     <input type="file" id="notaFiscal" accept="application/pdf">
 
+    <label>Observação — opcional</label>
+    <textarea id="observacao" rows="3" placeholder="Situação fora do padrão que o estoque precisa saber antes de despachar"></textarea>
+
     <label>Seu nome (quem está cadastrando) *</label>
     <input type="text" id="inseridoPor" placeholder="Ex: Nathalia" required>
 
@@ -167,6 +170,7 @@ async function enviar() {
   const osImagemInput = document.getElementById('osImagem');
   const tipoEnvioAereo = tipoEnvioAereoEl.value;
   const aeroporto = aeroportoEl.value.trim();
+  const observacao = document.getElementById('observacao').value.trim();
 
   const msg = document.getElementById('msg');
   msg.className = 'msg';
@@ -197,7 +201,8 @@ async function enviar() {
     action: 'create',
     os, cliente, linkCrm, transportadora, modalidade,
     prazo: new Date(prazo).toISOString(),
-    inseridoPor
+    inseridoPor,
+    observacao
   };
 
   if (modalidade === 'Aéreo') {
@@ -234,6 +239,7 @@ async function enviar() {
       notaFiscalInput.value = '';
       osImagemInput.value = '';
       document.getElementById('previewOsImagem').style.display = 'none';
+      document.getElementById('observacao').value = '';
       setDefaultPrazo();
     } else {
       throw new Error(data.erro || 'Erro desconhecido');
