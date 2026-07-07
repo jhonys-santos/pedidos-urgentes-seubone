@@ -27,7 +27,7 @@ function configurarPlanilha() {
   const headers = [
     'ID', 'OS', 'Cliente', 'LinkCRM', 'Transportadora', 'Modalidade',
     'TipoEnvioAereo', 'AeroportoRetirada', 'OSImagemId',
-    'ManifestoLink', 'NotaFiscalLink', 'Prazo', 'Status', 'InseridoPor', 'InseridoEm',
+    'ManifestoLink', 'NotaFiscalLink', 'Observacao', 'Prazo', 'Status', 'InseridoPor', 'InseridoEm',
     'DespachadoPor', 'DespachadoEm'
   ];
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
@@ -165,6 +165,7 @@ function criarPedido_(body) {
     osImagemId,
     manifestoLink,
     notaFiscalLink,
+    body.observacao || '',
     body.prazo ? new Date(body.prazo) : '',
     'Pendente',
     body.inseridoPor || '',
