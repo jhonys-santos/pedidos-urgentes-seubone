@@ -52,7 +52,18 @@
       </div>
       <div>
         <label>Transportadora &amp; Modalidade de envio (Ex: Latam - Standard) *</label>
-        <input type="text" id="transportadora" placeholder="Ex: Latam - Standard" required>
+        <input type="text" id="transportadora" list="lista-transportadoras" placeholder="Ex: Latam - Standard" required>
+        <datalist id="lista-transportadoras">
+          <option value="Correios">
+          <option value="Braspress">
+          <option value="Jadlog">
+          <option value="Total Express">
+          <option value="Rodonaves">
+          <option value="Latam Cargo">
+          <option value="Azul Cargo">
+          <option value="Gollog">
+          <option value="Motoboy local">
+        </datalist>
       </div>
     </div>
 

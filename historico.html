@@ -48,6 +48,10 @@
   <div id="tabela"></div>
 </div>
 
+<div id="modalOverlay" class="modal-overlay" onclick="if(event.target===this) fecharDetalhe()">
+  <div class="modal-box" id="modalConteudo"></div>
+</div>
+
 <script src="config.js"></script>
 <script>
 function setDefaultDatas() {
@@ -64,6 +68,8 @@ function mesmoDia(d1, d2) {
   return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 }
 
+let pedidosCarregados = [];
+
 async function carregar() {
   const desde = document.getElementById('desde').value;
   const ate = document.getElementById('ate').value;
@@ -73,6 +79,7 @@ async function carregar() {
     const pedidos = await resp.json();
 
     pedidos.sort((a, b) => new Date(b.InseridoEm) - new Date(a.InseridoEm));
+    pedidosCarregados = pedidos;
 
     const despachados = pedidos.filter(p => p.Status === 'Despachado' && p.DespachadoEm);
     const noMesmoDia = despachados.filter(p => mesmoDia(new Date(p.InseridoEm), new Date(p.DespachadoEm)));
@@ -111,7 +118,7 @@ async function carregar() {
               ? `<span class="badge ok">Despachado</span>`
               : `<span class="badge warn">Pendente</span>`;
             return `
-              <tr>
+              <tr class="linha-clicavel" onclick="abrirDetalhe('${p.ID}')">
                 <td class="mono">${p.OS}</td>
                 <td>${p.Cliente}</td>
                 <td>${statusBadge}</td>
@@ -125,6 +132,49 @@ async function carregar() {
   } catch (e) {
     document.getElementById('tabela').innerHTML = `<div class="empty">Erro ao carregar. Confira a URL em config.js.</div>`;
   }
+}
+
+function abrirDetalhe(id) {
+  const p = pedidosCarregados.find(x => x.ID === id);
+  if (!p) return;
+
+  const inserido = new Date(p.InseridoEm);
+  const despachado = p.DespachadoEm ? new Date(p.DespachadoEm) : null;
+  const statusBadge = p.Status === 'Despachado'
+    ? `<span class="badge ok">Despachado</span>`
+    : `<span class="badge warn">Pendente</span>`;
+
+  document.getElementById('modalConteudo').innerHTML = `
+    <div class="pedido-top">
+      <div>
+        <div class="pedido-os mono">${p.OS}</div>
+        <div class="pedido-cliente">${p.Cliente}</div>
+      </div>
+      ${statusBadge}
+    </div>
+
+    ${p.Observacao ? `<div class="observacao">⚠️ ${p.Observacao}</div>` : ''}
+
+    <div class="pedido-meta">
+      <div><div class="k">Bitrix/Lulu 2.0</div><a href="${p.LinkCRM}" target="_blank">Abrir pedido →</a></div>
+      <div><div class="k">Transportadora</div>${p.Transportadora}</div>
+      <div><div class="k">Modalidade</div>${p.Modalidade}</div>
+      ${p.TipoEnvioAereo ? `<div><div class="k">Envio aéreo</div>${p.TipoEnvioAereo}${p.AeroportoRetirada ? ' — ' + p.AeroportoRetirada : ''}</div>` : ''}
+      <div><div class="k">Prazo</div>${new Date(p.Prazo).toLocaleString('pt-BR')}</div>
+      <div><div class="k">Inserido por</div>${p.InseridoPor} — ${inserido.toLocaleString('pt-BR')}</div>
+      ${despachado ? `<div><div class="k">Despachado por</div>${p.DespachadoPor} — ${despachado.toLocaleString('pt-BR')}</div>` : ''}
+      ${p.ManifestoLink ? `<div><div class="k">Minuta</div><a href="${p.ManifestoLink}" target="_blank">Ver PDF →</a></div>` : ''}
+      ${p.NotaFiscalLink ? `<div><div class="k">Nota fiscal</div><a href="${p.NotaFiscalLink}" target="_blank">Baixar PDF →</a></div>` : ''}
+    </div>
+
+    ${p.OSImagemId ? `<img class="os-thumb" src="https://drive.google.com/thumbnail?id=${p.OSImagemId}&sz=w400" alt="Foto da OS ${p.OS}" onclick="window.open('https://drive.google.com/thumbnail?id=${p.OSImagemId}&sz=w1600','_blank')">` : ''}
+  `;
+
+  document.getElementById('modalOverlay').classList.add('aberto');
+}
+
+function fecharDetalhe() {
+  document.getElementById('modalOverlay').classList.remove('aberto');
 }
 
 carregar();
